@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Recycling Quest</title>
+  <style>
+    body { font-family: Arial; background: #e0f7e9; padding: 20px; text-align: center; }
+    .box { background: white; padding: 20px; margin: auto; border-radius: 10px; width: 320px; }
+    input, select, button { width: 90%; padding: 10px; margin: 8px 0; }
+    #pointsDisplay {
+      font-size: 22px;
+      font-weight: bold;
+      background: #d4fdd4;
+      color: #007b00;
+      padding: 10px;
+      border-radius: 8px;
+      margin-bottom: 10px;
+    }
+    #leaderboard { margin-top: 20px; text-align: left; }
+    #rewards li { margin: 5px 0; }
+    #avatarPreview { font-size: 32px; margin: 10px; }
+    .question { margin: 10px 0; }
+  </style>
+</head>
+<body>
+
+  <h1>♻️ Recycling Quest</h1>
+
+  <div class="box" id="loginBox">
+    <h3>Sign Up / Log In</h3>
+    <input type="text" id="username" placeholder="Enter username"><br>
+    <select id="avatar">
+      <option value="😀">😀</option>
+      <option value="🌱">🌱</option>
+      <option value="♻️">♻️</option>
+      <option value="🐢">🐢</option>
+      <option value="🧃">🧃</option>
+    </select>
+    <div id="avatarPreview">😀</div>
+    <button onclick="login()">Enter</button>
+  </div>
+
+  <div class="box" id="appBox" style="display:none;">
+    <h3><span id="userDisplay"></span> <span id="userAvatar"></span></h3>
+    <div id="pointsDisplay">Points: 0</div>
+
+    <p><b>🎯 Daily Task:</b> Recycle 1 item today</p>
+    <div id="dailyStatus">❌ Not completed</div>
+
+    <p>Upload recycling photo:</p>
+    <input type="file" accept="image/*"><br>
+
+    <p>Select bin:</p>
+    <select id="binType">
+      <option>Paper</option>
+      <option>Plastic</option>
+      <option>Metal</option>
+      <option>Glass</option>
+      <option>Other</option>
+    </select><br>
+
+    <button onclick="submitRecycle()">Submit Recycling</button>
+
+    <h4>🎁 Rewards:</h4>
+    <ul id="rewards">
+      <li>500 pts = Freeze</li>
+      <li>1000 pts = Muffin</li>
+      <li>1500 pts = Free drink of choice</li>
+    </ul>
+
+    <hr>
+    <h3>🧠 Recycling Quiz</h3>
+    <div id="quizBox"></div>
+    <button id="submitQuizBtn" onclick="submitQuiz()">Submit Quiz</button>
+
+    <button onclick="logout()">Sign Out</button>
+
+    <div id="leaderboard">
+      <h3>🏆 Leaderboard</h3>
+      <ul id="leaderList"></ul>
+    </div>
+  </div>
+
+  <script>
+    let currentUser = null;
+    let users = JSON.parse(localStorage.getItem("users")) || {};
+    let quizSubmitted = false;
+
+    const quizQuestions = [
+      { q: "What color bin is usually used for recycling paper?", a: "Blue", options: ["Green", "Blue", "Black"] },
+      { q: "Which of these is recyclable?", a: "Plastic bottle", options: ["Pizza crust", "Plastic bottle", "Banana peel"] },
+      { q: "What does the recycling symbol ♻️ mean?", a: "Reduce, reuse, recycle", options: ["Trash", "Recycle only plastic", "Reduce, reuse, recycle"] }
+    ];
+
+    document.getElementById("avatar").addEventListener("change", function() {
+      document.getElementById("avatarPreview").innerText = this.value;
+    });
+
+    function login() {
+      const username = document.getElementById("username").value.trim();
+      const avatar = document.getElementById("avatar").value;
+      if (!username) return alert("Please enter a username.");
+      if (!users[username]) users[username] = { points: 0, avatar: avatar, lastDaily: "" };
+
+      currentUser = username;
+      localStorage.setItem("users", JSON.stringify(users));
+      showApp();
+    }
+
+    function showApp() {
+      document.getElementById("loginBox").style.display = "none";
+      document.getElementById("appBox").style.display = "block";
+      document.getElementById("userDisplay").innerText = currentUser;
+      document.getElementById("userAvatar").innerText = users[currentUser].avatar;
+      updatePoints();
+      updateLeaderboard();
+      updateDailyStatus();
+      loadQuiz();
+    }
+
+    function submitRecycle() {
+      users[currentUser].points += 10;
+
+      const today = new Date().toLocaleDateString();
+      if (users[currentUser].lastDaily !== today) {
+        users[currentUser].points += 5;
+        users[currentUser].lastDaily = today;
+        alert("🎉 Daily task completed! +5 bonus points!");
+      }
+
+      localStorage.setItem("users", JSON.stringify(users));
+      updatePoints();
+      updateLeaderboard();
+      updateDailyStatus();
+      alert("✅ +10 points for recycling!");
+    }
+
+    function updatePoints() {
+      document.getElementById("pointsDisplay").innerText = "Points: " + users[currentUser].points;
+    }
+
+    function updateLeaderboard() {
+      let list = document.getElementById("leaderList");
+      list.innerHTML = "";
+      const sorted = Object.entries(users).sort((a,b) => b[1].points - a[1].points);
+      sorted.forEach(([name, data], i) => {
+        let li = document.createElement("li");
+        li.innerText = `${i+1}. ${data.avatar} ${name} - ${data.points} pts`;
+        list.appendChild(li);
+      });
+    }
+
+    function updateDailyStatus() {
+      const today = new Date().toLocaleDateString();
+      const status = (users[currentUser].lastDaily === today) ? "✅ Completed!" : "❌ Not completed";
+      document.getElementById("dailyStatus").innerText = status;
+    }
+
+    function logout() {
+      currentUser = null;
+      quizSubmitted = false;
+      document.getElementById("quizBox").innerHTML = "";
+      document.getElementById("submitQuizBtn").style.display = "block";
+      document.getElementById("appBox").style.display = "none";
+      document.getElementById("loginBox").style.display = "block";
+    }
+
+    function loadQuiz() {
+      let quizBox = document.getElementById("quizBox");
+      quizBox.innerHTML = "";
+      quizQuestions.forEach((q, index) => {
+        let html = `<div class="question"><p><b>Q${index+1}:</b> ${q.q}</p>`;
+        q.options.forEach(opt => {
+          html += `<label><input type="radio" name="q${index}" value="${opt}"> ${opt}</label><br>`;
+        });
+        html += `</div>`;
+        quizBox.innerHTML += html;
+      });
+    }
+
+    function submitQuiz() {
+      if (quizSubmitted) return alert("You've already done the quiz!");
+      let score = 0;
+      quizQuestions.forEach((q, i) => {
+        const selected = document.querySelector(`input[name="q${i}"]:checked`);
+        if (selected && selected.value === q.a) score += 5;
+      });
+
+      users[currentUser].points += score;
+      quizSubmitted = true;
+      localStorage.setItem("users", JSON.stringify(users));
+      updatePoints();
+      updateLeaderboard();
+      document.getElementById("submitQuizBtn").style.display = "none";
+      alert(`✅ You earned ${score} points from the quiz!`);
+    }
+  </script>
+</body>
+</html>
